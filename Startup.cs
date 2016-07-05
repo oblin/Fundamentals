@@ -31,6 +31,15 @@ namespace EmptyWebApplication
                 app.UseDeveloperExceptionPage();
             }
 
+            // app.UseFileServer(new FileServerOptions()
+            // {
+            //     FileProvider = new PhysicalFileProvider(
+            //         Path.Combine(Directory.GetCurrentDirectory(), @"wwwroot\images")),
+            //     RequestPath = new PathString("/images"),
+            //     EnableDirectoryBrowsing = true,
+            //     EnableDefaultFiles = true
+            // });
+
             DefaultFilesOptions options = new DefaultFilesOptions();
             options.DefaultFileNames.Clear();
             options.DefaultFileNames.Add("mydefault.html");
@@ -38,17 +47,32 @@ namespace EmptyWebApplication
             app.UseDefaultFiles();
             app.UseStaticFiles();
 
-            app.UseStaticFiles(new StaticFileOptions(){
+            // Set up custom content types -associating file extension to MIME type
+            var provider = new FileExtensionContentTypeProvider();
+            // Add new mappings
+            provider.Mappings[".myapp"] = "application/x-msdownload";
+            provider.Mappings[".htm3"] = "text/html";
+            provider.Mappings[".image"] = "image/png";
+            // Replace an existing mapping
+            provider.Mappings[".rtf"] = "application/x-msdownload";
+            // Remove MP4 videos.
+            provider.Mappings.Remove(".mp4");
+
+            app.UseStaticFiles(new StaticFileOptions()
+            {
                 FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), @"files")),
-                RequestPath = new PathString("/GetFile")
+                RequestPath = new PathString("/GetFile"),
+                ContentTypeProvider = provider
             });
 
-            app.UseStaticFiles(new StaticFileOptions(){
+            app.UseStaticFiles(new StaticFileOptions()
+            {
                 FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), @"wwwroot\images")),
                 RequestPath = new PathString("/MyImages")
             });
 
-            app.UseDirectoryBrowser(new DirectoryBrowserOptions(){
+            app.UseDirectoryBrowser(new DirectoryBrowserOptions()
+            {
                 FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), @"wwwroot\images")),
                 RequestPath = new PathString("/MyImages")
             });
