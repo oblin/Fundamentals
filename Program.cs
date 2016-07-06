@@ -25,7 +25,7 @@ namespace EmptyWebApplication
                 .UseStartup<Startup>()
                 .Build();
 
-            host.Run();
+            host.Run();            
         }
     }
 }

@@ -1,11 +1,11 @@
 using System;
-using System.IO;
+using System.Net;
+using System.Text;
+using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 
 namespace EmptyWebApplication
@@ -31,55 +31,54 @@ namespace EmptyWebApplication
                 app.UseDeveloperExceptionPage();
             }
 
-            // app.UseFileServer(new FileServerOptions()
-            // {
-            //     FileProvider = new PhysicalFileProvider(
-            //         Path.Combine(Directory.GetCurrentDirectory(), @"wwwroot\images")),
-            //     RequestPath = new PathString("/images"),
-            //     EnableDirectoryBrowsing = true,
-            //     EnableDefaultFiles = true
-            // });
+            // app.UseStatusCodePages("text/plain", "Response, Status code: {0}");
 
-            DefaultFilesOptions options = new DefaultFilesOptions();
-            options.DefaultFileNames.Clear();
-            options.DefaultFileNames.Add("mydefault.html");
+            app.MapWhen(context => context.Request.Path == "/missingpage", builder => { });
 
-            app.UseDefaultFiles();
-            app.UseStaticFiles();
-
-            // Set up custom content types -associating file extension to MIME type
-            var provider = new FileExtensionContentTypeProvider();
-            // Add new mappings
-            provider.Mappings[".myapp"] = "application/x-msdownload";
-            provider.Mappings[".htm3"] = "text/html";
-            provider.Mappings[".image"] = "image/png";
-            // Replace an existing mapping
-            provider.Mappings[".rtf"] = "application/x-msdownload";
-            // Remove MP4 videos.
-            provider.Mappings.Remove(".mp4");
-
-            app.UseStaticFiles(new StaticFileOptions()
+            app.UseStatusCodePagesWithReExecute("/errors/{0}");
+            // "/errors/400"
+            app.Map("/errors", error =>
             {
-                FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), @"files")),
-                RequestPath = new PathString("/GetFile"),
-                ContentTypeProvider = provider
+                error.Run(async context =>
+                {
+                    var builder = new StringBuilder();
+                    var encoder = HtmlEncoder.Default;
+                    builder.AppendLine("<html><body>");
+                    builder.AppendLine("An error occurred, Status Code: " +
+                        encoder.Encode(context.Request.Path.ToString().Substring(1)) + "<br />");
+                    var referrer = context.Request.Headers["referer"];
+                    if (!string.IsNullOrEmpty(referrer))
+                    {
+                        builder.AppendLine("Return to <a href=\"" + encoder.Encode(referrer) + "\">" +
+                            WebUtility.HtmlEncode(referrer) + "</a><br />");
+                    }
+                    builder.AppendLine("</body></html>");
+                    context.Response.ContentType = "text/html";
+                    await context.Response.WriteAsync(builder.ToString());
+                });
             });
 
-            app.UseStaticFiles(new StaticFileOptions()
-            {
-                FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), @"wwwroot\images")),
-                RequestPath = new PathString("/MyImages")
-            });
+            HomePage(app);
+        }
 
-            app.UseDirectoryBrowser(new DirectoryBrowserOptions()
-            {
-                FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), @"wwwroot\images")),
-                RequestPath = new PathString("/MyImages")
-            });
-
+        public static void HomePage(IApplicationBuilder app)
+        {
             app.Run(async (context) =>
             {
-                await context.Response.WriteAsync("Hello from Hebe!");
+                if (context.Request.Query.ContainsKey("throw"))
+                    throw new Exception("Exception triggered!");
+
+                var builder = new StringBuilder();
+                builder.AppendLine("<html><body>Hello World!");
+                builder.AppendLine("<ul>");
+                builder.AppendLine("<li><a href=\"/?throw=true\">Throw Exception</a></li>");
+                builder.AppendLine("<li><a href=\"/missingpage\">Missing Page</a></li>");
+                builder.AppendLine("</ul>");
+                builder.AppendLine("</body></html>");
+
+
+                context.Response.ContentType = "text/html";
+                await context.Response.WriteAsync(builder.ToString());
             });
         }
     }
